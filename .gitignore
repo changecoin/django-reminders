@@ -1,0 +1,9 @@
+.DS_Store
+*.pyc
+*.swp
+.coverage
+*.log
+node_modules
+
+# jetbrains/pycharm
+.idea
