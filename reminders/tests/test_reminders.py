@@ -6,13 +6,13 @@ from django.test.client import RequestFactory
 import mock
 
 
-def show_reminder(user):
+def show_to_bob(user):
     if user.first_name == 'Bob':
-        return {'do_a_thing': 'put on pants'}
+        return "Remember to put on pants"
 
 
-def show_reminder_to_everyone(user):
-    return {'do_a_thing': 'take out the trash'}
+def show_everyone(user):
+    return "Remember to take out the trash"
 
 
 class RemindersTestCase(TestCase):
@@ -34,13 +34,11 @@ class RemindersTestCase(TestCase):
                               "{% endfor %}"
         self.usual_settings = {
             "email_address": {
-                "test": "reminders.tests.test_reminders.show_reminder",
-                "message": "Remember to %(do_a_thing)s",
+                "message": "reminders.tests.test_reminders.show_to_bob",
                 "dismissable": "permanent"
             },
             "blanket": {
-                "test": "reminders.tests.test_reminders.show_reminder_to_everyone",
-                "message": "Remember to %(do_a_thing)s",
+                "message": "reminders.tests.test_reminders.show_everyone",
                 "dismissable": "permanent"
             }
         }

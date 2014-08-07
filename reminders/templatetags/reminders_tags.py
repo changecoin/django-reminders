@@ -50,27 +50,28 @@ class RemindersNode(template.Node):
 
     def render(self, context):
         request = context["request"]
-        reminders = []
+        reminders_result = []
+
         if request.user.is_authenticated():
+
             for label in settings.REMINDERS:
                 reminder = settings.REMINDERS[label]
+
                 if not is_dismissed(label, reminder.get("dismissable"), request):
-                    test = reminder["test"]
                     message = reminder["message"]
-                    if not callable(test):
-                        test = load_callable(test)
+                    if not callable(message):
+                        message = load_callable(message)
+
                     url = None
                     if reminder.get("dismissable") != "no":
                         url = reverse("reminders_dismiss", kwargs={"label": label})
-                    result = test(request.user)
-                    if result:
-                        if isinstance(result, dict):
-                            message = message % result
-                        reminders.append({
-                            "message": mark_safe(message),
-                            "dismiss_url": url
-                        })
-        context[self.as_var] = reminders
+
+                    result = message(request.user)
+                    if result and isinstance(result, basestring):
+                        reminders_result.append({"message": mark_safe(result),
+                                                 "dismiss_url": url})
+
+        context[self.as_var] = reminders_result
         return ""
 
 
