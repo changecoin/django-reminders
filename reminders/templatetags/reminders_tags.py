@@ -1,6 +1,8 @@
+from datetime import timedelta
 from django import template
 from django.conf import settings
 from django.core.urlresolvers import reverse
+from django.utils import timezone
 from django.utils.importlib import import_module
 from django.utils.safestring import mark_safe
 
@@ -36,6 +38,11 @@ def is_dismissed(label, dismissal_type, request):
     return dismissed
 
 
+def recently_dismissed_something(user):
+    time_ago = timezone.now() - timedelta(days=1)
+    return Dismissal.objects.filter(user=user, dismissed_at__gt=time_ago).exists()
+
+
 class RemindersNode(template.Node):
 
     @classmethod
@@ -50,11 +57,14 @@ class RemindersNode(template.Node):
 
     def render(self, context):
         request = context["request"]
-        reminders_result = []
+        show_reminder = None
 
-        if request.user.is_authenticated():
+        # Don't bother if they aren't logged in or if they just recently dismissed another message
+        if request.user.is_authenticated() and not recently_dismissed_something(request.user):
 
-            for label in settings.REMINDERS:
+            # Make sure the order is deterministic here so they get the same
+            # reminder on each screen until they dismiss it
+            for label in sorted(settings.REMINDERS.keys()):
                 reminder = settings.REMINDERS[label]
 
                 if not is_dismissed(label, reminder.get("dismissable"), request):
@@ -68,10 +78,12 @@ class RemindersNode(template.Node):
 
                     result = message(request.user)
                     if result and isinstance(result, basestring):
-                        reminders_result.append({"message": mark_safe(result),
-                                                 "dismiss_url": url})
+                        show_reminder = {"message": mark_safe(result),
+                                         "dismiss_url": url}
+                        # just one reminder at a time, spaced according to time_ago in recently_dismissed_something
+                        break
 
-        context[self.as_var] = reminders_result
+        context[self.as_var] = show_reminder
         return ""
 
 

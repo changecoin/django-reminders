@@ -1,7 +1,10 @@
+from datetime import timedelta
 from django.contrib.auth.models import User, AnonymousUser
 from django.template import Template, Context
 from django.test import TestCase
 from django.test.client import RequestFactory
+from django.utils import timezone
+from reminders.models import Dismissal
 
 import mock
 
@@ -26,14 +29,14 @@ class RemindersTestCase(TestCase):
         self.wonko.save()
 
         self.usual_template = "{% load reminders_tags %}" \
-                              "{% reminders as user_reminders %}" \
-                              "{% for reminder in user_reminders %}" \
+                              "{% reminders as reminder %}" \
+                              "{% if reminder %}" \
                               "Message: {{ reminder.message }} " \
                               "URL: {{ reminder.dismiss_url }}" \
-                              "{% empty %}No reminders" \
-                              "{% endfor %}"
+                              "{% else %}No reminders" \
+                              "{% endif %}"
         self.usual_settings = {
-            "email_address": {
+            "show_to_bob": {
                 "message": "reminders.tests.test_reminders.show_to_bob",
                 "dismissable": "permanent"
             },
@@ -63,21 +66,20 @@ class RemindersTestCase(TestCase):
             t = Template(self.usual_template).render(Context({'request': request}))
             self.assertEqual(t.strip(), "No reminders")
 
-            # Authenticated Bob will get both the blanket message and the bob-specific message
+            # Authenticated Bob will get just the blanket message because it's alphabetically first
             bob.is_authenticated.return_value = True
             setattr(request, 'user', bob)
 
             t = Template(self.usual_template).render(Context({'request': request}))
             self.assertEqual(t.strip(),
-                             "Message: Remember to take out the trash URL: /reminders/dismiss/blanket/" +
-                             "Message: Remember to put on pants URL: /reminders/dismiss/email_address/")
+                             "Message: Remember to take out the trash URL: /reminders/dismiss/blanket/")
 
-            # First name is no longer Bob, so now he'll get just the blanket message
-            bob.first_name = "Baobab"
-            bob.save()
+            # Bob dismisses that one
+            Dismissal.objects.create(label="blanket", user=bob)
 
+            # Now Bob gets no messages, even though his name is Bob, because he just recently dismissed a message
             t = Template(self.usual_template).render(Context({'request': request}))
-            self.assertEqual(t.strip(), "Message: Remember to take out the trash URL: /reminders/dismiss/blanket/")
+            self.assertEqual(t.strip(), "No reminders")
 
             # Authenticated Wonko will just get the blanket message
             wonko = User.objects.get(username='wonko')
@@ -87,3 +89,24 @@ class RemindersTestCase(TestCase):
 
             t = Template(self.usual_template).render(Context({'request': request}))
             self.assertEqual(t.strip(), "Message: Remember to take out the trash URL: /reminders/dismiss/blanket/")
+
+            # Both wonko dismisses the trash/blanket one too
+            Dismissal.objects.create(label="blanket", user=wonko)
+
+            # Authenticated Wonko will get no messages
+            t = Template(self.usual_template).render(Context({'request': request}))
+            self.assertEqual(t.strip(), "No reminders")
+
+            # Authenticated Bob will get no messages
+            setattr(request, 'user', bob)
+            t = Template(self.usual_template).render(Context({'request': request}))
+            self.assertEqual(t.strip(), "No reminders")
+
+            # Now it's been a couple days since Bob dismissed that blanket one
+            bobs_dismissal = Dismissal.objects.get(label="blanket", user=bob)
+            bobs_dismissal.dismissed_at = timezone.now() - timedelta(days=2)
+            bobs_dismissal.save()
+
+            # Now Bob will get the show-to-bob message
+            t = Template(self.usual_template).render(Context({'request': request}))
+            self.assertEqual(t.strip(), "Message: Remember to put on pants URL: /reminders/dismiss/show_to_bob/")
