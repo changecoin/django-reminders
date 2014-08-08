@@ -62,9 +62,8 @@ class RemindersNode(template.Node):
         # Don't bother if they aren't logged in or if they just recently dismissed another message
         if request.user.is_authenticated() and not recently_dismissed_something(request.user):
 
-            # Make sure the order is deterministic here so they get the same
-            # reminder on each screen until they dismiss it
-            for label in sorted(settings.REMINDERS.keys()):
+            # Order by specified priority
+            for label in sorted(settings.REMINDERS, key=lambda x: settings.REMINDERS[x]['priority']):
                 reminder = settings.REMINDERS[label]
 
                 if not is_dismissed(label, reminder.get("dismissable"), request):

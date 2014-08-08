@@ -36,13 +36,15 @@ class RemindersTestCase(TestCase):
                               "{% else %}No reminders" \
                               "{% endif %}"
         self.usual_settings = {
-            "show_to_bob": {
+            "a_show_to_bob": {
                 "message": "reminders.tests.test_reminders.show_to_bob",
-                "dismissable": "permanent"
+                "dismissable": "permanent",
+                "priority": 2
             },
             "blanket": {
                 "message": "reminders.tests.test_reminders.show_everyone",
-                "dismissable": "permanent"
+                "dismissable": "permanent",
+                "priority": 1
             }
         }
 
@@ -66,7 +68,7 @@ class RemindersTestCase(TestCase):
             t = Template(self.usual_template).render(Context({'request': request}))
             self.assertEqual(t.strip(), "No reminders")
 
-            # Authenticated Bob will get just the blanket message because it's alphabetically first
+            # Authenticated Bob will get just the blanket message because it's prioritized first
             bob.is_authenticated.return_value = True
             setattr(request, 'user', bob)
 
@@ -109,4 +111,4 @@ class RemindersTestCase(TestCase):
 
             # Now Bob will get the show-to-bob message
             t = Template(self.usual_template).render(Context({'request': request}))
-            self.assertEqual(t.strip(), "Message: Remember to put on pants URL: /reminders/dismiss/show_to_bob/")
+            self.assertEqual(t.strip(), "Message: Remember to put on pants URL: /reminders/dismiss/a_show_to_bob/")
