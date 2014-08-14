@@ -18,7 +18,10 @@ def dismiss(request, label):
         request.session[label] = "dismissed"
         status = 200
     elif dismiss_type == "permanent":
-        Dismissal.objects.create(user=request.user, label=label)
+        # If they leave a tab open somewhere and then log out on another tab
+        # the user may not be authenticated by the time they get here.
+        if request.user.is_authenticated():
+            Dismissal.objects.create(user=request.user, label=label)
         status = 200
     else:
         status = 409
