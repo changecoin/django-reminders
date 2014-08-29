@@ -10,6 +10,7 @@ from reminders.models import Dismissal
 
 
 register = template.Library()
+REMINDERS_IGNORE_URLS = getattr(settings, 'REMINDERS_IGNORE_URLS', [])
 
 
 def load_callable(path_to_callable):
@@ -59,8 +60,13 @@ class RemindersNode(template.Node):
         request = context["request"]
         show_reminder = None
 
+        ignore_url = False
+        for s in REMINDERS_IGNORE_URLS:
+            if s in request.path:
+                ignore_url = True
+
         # Don't bother if they aren't logged in or if they just recently dismissed another message
-        if request.user.is_authenticated() and not recently_dismissed_something(request.user):
+        if not ignore_url and request.user.is_authenticated() and not recently_dismissed_something(request.user):
 
             # Order by specified priority
             for label in sorted(settings.REMINDERS, key=lambda x: settings.REMINDERS[x]['priority']):
