@@ -81,7 +81,12 @@ class RemindersNode(template.Node):
                     if reminder.get("dismissable") != "no":
                         url = reverse("reminders_dismiss", kwargs={"label": label})
 
-                    result = message(request.user)
+                    try:
+                        hostname = request.get_host()
+                    except Exception as e:
+                        hostname = str(e)
+
+                    result = message(request.user, host=hostname)
                     if result and isinstance(result, basestring):
                         show_reminder = {"message": mark_safe(result),
                                          "dismiss_url": url}
